@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Screenshot Gallery</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
+      margin: 0;
+      padding: 0;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .title {
+      text-align: center;
+      font-size: 2rem;
+      margin-bottom: 20px;
+    }
+
+    .folder-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 20px;
+    }
+
+    .folder-button {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      text-align: center;
+      background-color: white;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    .folder-button:hover {
+      background-color: #f1f1f1;
+    }
+
+    .folder-button .folder-icon {
+      font-size: 3rem;
+      margin-bottom: 10px;
+    }
+
+    #download-all-btn {
+      background-color: #007BFF;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      font-size: 1.2rem;
+      cursor: pointer;
+      border-radius: 5px;
+      margin-bottom: 20px;
+    }
+
+    #download-all-btn:hover {
+      background-color: #0056b3;
+    }
+
+    #log-list {
+      margin-top: 30px;
+      padding: 20px;
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .log-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px;
+      border-bottom: 1px solid #ddd;
+    }
+
+    .log-item:last-child {
+      border-bottom: none;
+    }
+
+    .log-item span {
+      font-size: 1rem;
+      color: #333;
+    }
+
+    .download-button {
+      background-color: #28a745;
+      color: white;
+      padding: 8px 16px;
+      font-size: 1rem;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    .download-button:hover {
+      background-color: #218838;
+    }
+
+    .log-item:hover {
+      background-color: #f9f9f9;
+    }
+
+    .form-container {
+      background-color: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      margin-top: 40px;
+    }
+
+    .form-container label {
+      font-size: 1rem;
+      margin-bottom: 5px;
+      display: block;
+    }
+
+    .form-container input[type="number"],
+    .form-container input[type="file"] {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      margin-bottom: 15px;
+    }
+
+    .form-container button {
+      background-color: #007BFF;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      cursor: pointer;
+      border-radius: 5px;
+      width: 100%;
+      font-size: 1rem;
+    }
+
+    .form-container button:hover {
+      background-color: #0056b3;
+    }
+
+    #status {
+      font-size: 20px;
+      font-weight: bold;
+      padding: 10px;
+      margin-top: 20px;
+    }
+    .red {
+      color: red;
+    }
+    .green {
+      color: green;
+    }
+
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.8.0/jszip.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <div class="form-container">
+        <h2>Start Screenshots</h2>
+        <form action="/screenshot" method="POST" enctype="multipart/form-data">
+          <label for="width">Browser Width:</label>
+          <input type="number" id="width" name="width" value="1800" required>
+          <br>
+          <label for="concurrency">Concurrency:</label>
+          <input type="number" id="concurrency" name="concurrency" value="5" required>
+          <br>
+          <label for="urlFile">Upload URL List:</label>
+          <input type="file" id="urlFile" name="urlFile" accept=".txt" required>
+          <br>
+          <button type="submit">Start Screenshots</button>
+        </form>
+      </div>
+      <h1>Status of Capturing</h1>
+  <div id="status">Loading...</div>
+
+    <h1 class="title">Screenshot Gallery</h1>
+    <div id="folder-list" class="folder-list"></div>
+    <div id="log-list" class="log-list"></div>
+  </div>
+
+  <script>
+      fetch('/api/status')
+      .then(response => response.json())
+      .then(data => {
+        const statusElement = document.getElementById('status');
+        if (data.isCapturing) {
+          statusElement.textContent = 'Capturing is ON';
+          statusElement.className = 'green';
+        } else {
+          statusElement.textContent = 'Capturing is OFF';
+          statusElement.className = 'red';
+        }
+      })
+      .catch(error => {
+        console.error('Error fetching status:', error);
+      });
+
+    const folderListElement = document.getElementById("folder-list");
+    const logListElement = document.getElementById("log-list");
+  
+    // Fetch folders from the API
+    fetch('/api/img-folders')
+      .then(response => response.json())
+      .then(folders => {
+        // Render the folder buttons
+        folders.forEach((folder) => {
+          const folderButton = document.createElement("div");
+          folderButton.className = "folder-button";
+          folderButton.innerHTML = `
+            <div class="folder-icon">📁</div>
+            <span>${folder.name}</span>
+          `;
+          folderButton.addEventListener("click", () => downloadFolderAsZip(folder.name,folders));
+          folderListElement.appendChild(folderButton);
+        });
+      })
+      .catch(error => console.error('Error fetching folders:', error));
+  
+    // Fetch logs from the API
+    fetch('/api/log-folders')
+      .then(response => response.json())
+      .then(logFolders => {
+        logFolders.logs.forEach((log) => {
+          const logItem = document.createElement("div");
+          logItem.className = "log-item";
+          logItem.innerHTML = `
+            <span>${log.name}</span>
+            <button class="download-button" onclick="downloadLog('${log.src}', '${log.name}')">Download</button>
+          `;
+          logListElement.appendChild(logItem);
+        });
+      })
+      .catch(error => console.error('Error fetching logs:', error));
+  
+    // Function to download a folder as a zip
+    function downloadFolderAsZip(folderName,folders) {
+      const folder = folders.find((folder) => folder.name === folderName);
+      if (folder) {
+        const zip = new JSZip();
+        folder.screenshots.forEach((screenshot) => {
+          fetch(screenshot.src)
+            .then(response => response.blob())
+            .then(blob => {
+              zip.file(screenshot.name, blob);
+              if (Object.keys(zip.files).length === folder.screenshots.length) {
+                zip.generateAsync({ type: "blob" }).then((content) => {
+                  const link = document.createElement("a");
+                  link.href = URL.createObjectURL(content);
+                  link.download = `${folder.name}.zip`;
+                  link.click();
+                });
+              }
+            });
+        });
+      }
+    }
+  
+    function downloadLog(src, name) {
+      const link = document.createElement("a");
+      link.href = src;
+      link.download = name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  </script>
+  
+</body>
+</html>
